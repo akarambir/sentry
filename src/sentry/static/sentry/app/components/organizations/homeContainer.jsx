@@ -27,12 +27,12 @@ const HomeContainer = React.createClass({
           </div>
           <div className="align-right hidden-xs">
             {access.has('project:write')
-              ? <a
-                  href={`/organizations/${org.slug}/projects/new/`}
+              ? <Link
+                  to={`/organizations/${org.slug}/projects/new/`}
                   className="btn btn-primary"
                   style={{marginRight: 5}}>
                   {t('New Project')}
-                </a>
+                </Link>
               : <a
                   className="btn btn-primary btn-disabled tip"
                   data-placement="bottom"
