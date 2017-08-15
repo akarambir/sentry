@@ -252,6 +252,17 @@ local function argument_parser(callback)
     end
 end
 
+local function flag_argument_parser(flags)
+    return function (cursor, arguments)
+        local result = {}
+        while flags[arguments[cursor]] do
+            result[arguments[cursor]] = true
+            cursor = cursor + 1
+        end
+        return cursor, result
+    end
+end
+
 local function repeated_argument_parser(argument_parser, quantity_parser)
     if quantity_parser == nil then
         quantity_parser = function (cursor, arguments)
@@ -296,6 +307,17 @@ local function variadic_argument_parser(argument_parser)
     end
 end
 
+local function multiple_argument_parser(...)
+    local parsers = {...}
+    return function (cursor, arguments)
+        local results = {}
+        for i, parser in ipairs(parsers) do
+            cursor, results[i] = parser(cursor, arguments)
+        end
+        return cursor, unpack(results)
+    end
+end
+
 local function frequencies_argument_parser(bands)
     return repeated_argument_parser(
         function (cursor, arguments)
@@ -336,12 +358,17 @@ local commands = {
         end
     end,
     CLASSIFY = function (configuration, cursor, arguments)
-        local cursor, requests = variadic_argument_parser(
-            object_argument_parser({
-                {"index", argument_parser()},
-                {"threshold", argument_parser(tonumber)},
-                {"frequencies", frequencies_argument_parser(configuration.bands)},
-            })
+        local cursor, flags, requests = multiple_argument_parser(
+            flag_argument_parser({
+                STRICT = true
+            }),
+            variadic_argument_parser(
+                object_argument_parser({
+                    {"index", argument_parser()},
+                    {"threshold", argument_parser(tonumber)},
+                    {"frequencies", frequencies_argument_parser(configuration.bands)},
+                })
+            )
         )(cursor, arguments)
 
         local candidates = default_table(
