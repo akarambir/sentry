@@ -48,6 +48,20 @@ local function default_table(default)
     })
 end
 
+local function filter(predicate, iterator, state, control)
+    return function ()
+        local result = {iterator(state, control)}
+        control = result[1]
+        while control ~= nil do
+            if predicate(unpack(result)) then
+                return unpack(result)
+            end
+            result = {iterator(state, control)}
+            control = result[1]
+        end
+    end
+end
+
 local function redis_hash_response_iterator(response)
     local i = 1
     return function ()
@@ -383,8 +397,39 @@ local commands = {
             end
         end
 
+        local predicate
+        if flags.STRICT then
+            -- STRICT mode requires that all thresholds are met for the
+            -- candidate for all features that contain data on the target *and*
+            -- that the candidate not contain data for any features that are
+            -- not also present on the target.
+            predicate = function (candidate, indices)
+                -- TODO: This filter should only be applied if the frequencies
+                -- actually contain any entries. (If the target doesn't have
+                -- any records for the feature, of course there won't be any
+                -- collisions.)
+                for i, request in ipairs(requests) do
+                    if indices[request.index] < request.threshold then
+                        return false
+                    end
+                end
+                return true
+            end
+        else
+            -- Normal (non-STRICT) mode just requires that a single feature be
+            -- over the threshold.
+            predicate = function (candidate, indices)
+                for i, request in ipairs(requests) do
+                    if indices[request.index] >= request.threshold then
+                        return true
+                    end
+                end
+                return false
+            end
+        end
+
         local results = {}
-        for candidate, _ in pairs(candidates) do
+        for candidate, _ in filter(predicate, pairs(candidates)) do
             local result = {}
             for i, request in ipairs(requests) do
                 result[i] = string.format(
