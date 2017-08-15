@@ -38,24 +38,6 @@ local function identity(...)
     return ...
 end
 
-local function partial(target, ...)
-    local bound_arguments = {...}
-
-    return function (...)
-        local call_arguments = {}
-
-        for i = 1, #bound_arguments do
-            call_arguments[i] = bound_arguments[i]
-        end
-
-        for j, argument in ipairs({...}) do
-            call_arguments[i + j] = argument
-        end
-
-        return target(unpack(call_arguments))
-    end
-end
-
 local function default_table(default)
     return setmetatable({}, {
         __index = function (table, key)
