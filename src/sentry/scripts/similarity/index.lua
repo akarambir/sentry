@@ -201,7 +201,7 @@ function Configuration:get_candidates(index, frequencies)
 
     for band = 1, self.bands do
         for bucket, _ in pairs(frequencies[band]) do
-            for candidate, _ in pairs(self:get_candidate_index(index, band, bucket):members(configuration.timestamp)) do
+            for candidate, _ in pairs(self:get_candidate_index(index, band, bucket):members(self.timestamp)) do
                 candidates[candidate][band] = candidates[candidate][band] + 1
             end
         end
@@ -298,7 +298,7 @@ local function object_argument_parser(schema, callback)
             local key, parser = unpack(specification)
             cursor, result[key] = parser(cursor, arguments)
         end
-        return cursor, result
+        return cursor, callback(result)
     end
 end
 
@@ -344,10 +344,7 @@ local commands = {
             })
         )(cursor, arguments)
 
-        redis.breakpoint()
-        error('not implemented')
-
-        for request in requests do
+        for i, request in ipairs(requests) do
             configuration:set_frequencies(request.index, request.key, request.frequencies)
             for band = 1, configuration.bands do
                 for bucket, _ in pairs(request.frequencies[band]) do
@@ -365,14 +362,11 @@ local commands = {
             })
         )(cursor, arguments)
 
-        error('not implemented')
-
-        local candidates = setmetatable({}, {
-            __index = function (t, k)
-                t[k] = {}
-                return t[k]
-            end,
-        })
+        local candidates = default_table(
+            function ()
+                return {}
+            end
+        )
 
         for i, request in ipairs(requests) do
             for candidate, collisions in pairs(configuration:get_candidates(request.index, request.frequencies)) do
@@ -392,7 +386,10 @@ local commands = {
                     )
                 )
             end
-            results[candidate] = result
+            results[#results + 1] = {
+                candidate,
+                result,
+            }
         end
 
         return results
