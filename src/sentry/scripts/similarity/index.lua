@@ -401,12 +401,8 @@ local function search(configuration, requests, strict)
         -- that the candidate not contain data for any features that are
         -- not also present on the target.
         predicate = function (candidate, indices)
-            -- TODO: This filter should only be applied if the frequencies
-            -- actually contain any entries. (If the target doesn't have
-            -- any records for the feature, of course there won't be any
-            -- collisions.)
             for i, request in ipairs(requests) do
-                if (indices[request.index] or 0) < request.threshold then
+                if (indices[request.index] or 0) < request.threshold and not request.frequencies:empty() then
                     return false
                 end
             end
@@ -431,8 +427,9 @@ local function search(configuration, requests, strict)
             local result = {}
             for i, request in ipairs(requests) do
                 local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
-                if (request.frequencies:empty() and candidate_frequencies:empty()) or
-                    (not request.frequencies:empty() and not candidate_frequencies:empty()) then
+                if request.frequencies:empty() and candidate_frequencies:empty() then
+                    result[i] = -1
+                elseif not request.frequencies:empty() and not candidate_frequencies:empty() then
                     result[i] = configuration:calculate_similarity(
                         request.frequencies,
                         candidate_frequencies
