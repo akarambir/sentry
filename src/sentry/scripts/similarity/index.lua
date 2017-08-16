@@ -52,11 +52,10 @@ local function map(func, iterator, state, control)
     return function ()
         local result = {iterator(state, control)}
         control = result[1]
-        while control ~= nil do
-            result = {iterator(state, control)}
-            control = result[1]
-            return func(unpack(result))
+        if control == nil then
+            return nil
         end
+        return func(unpack(result))
     end
 end
 
@@ -382,6 +381,101 @@ local function frequencies_argument_parser(bands)
 end
 
 
+local function search(configuration, requests, strict)
+    local candidates = default_table(
+        function ()
+            return {}
+        end
+    )
+
+    for i, request in ipairs(requests) do
+        for candidate, collisions in pairs(configuration:get_candidates(request.index, request.frequencies)) do
+            candidates[candidate][request.index] = collisions
+        end
+    end
+
+    local predicate
+    if strict then
+        -- STRICT mode requires that all thresholds are met for the
+        -- candidate for all features that contain data on the target *and*
+        -- that the candidate not contain data for any features that are
+        -- not also present on the target.
+        predicate = function (candidate, indices)
+            -- TODO: This filter should only be applied if the frequencies
+            -- actually contain any entries. (If the target doesn't have
+            -- any records for the feature, of course there won't be any
+            -- collisions.)
+            for i, request in ipairs(requests) do
+                if (indices[request.index] or 0) < request.threshold then
+                    return false
+                end
+            end
+            return true
+        end
+    else
+        -- Normal (non-STRICT) mode just requires that a single feature be
+        -- over the threshold.
+        predicate = function (candidate, indices)
+            for i, request in ipairs(requests) do
+                if (indices[request.index] or 0) >= request.threshold then
+                    return true
+                end
+            end
+            return false
+        end
+    end
+
+    local score
+    if strict then
+        score = function (candidate, indices)
+            local result = {}
+            for i, request in ipairs(requests) do
+                local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
+                if (request.frequencies:empty() and candidate_frequencies:empty()) or
+                    (not request.frequencies:empty() and not candidate_frequencies:empty()) then
+                    result[i] = configuration:calculate_similarity(
+                        request.frequencies,
+                        candidate_frequencies
+                    )
+                else
+                    return candidate, false, {}
+                end
+            end
+            return candidate, true, result
+        end
+    else
+        score = function (candidate, indices)
+            local result = {}
+            for i, request in ipairs(requests) do
+                if request.frequencies:empty() then
+                    result[i] = -1
+                else
+                    local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
+                    if candidate_frequencies:empty() then
+                        result[i] = -1
+                    else
+                        result[i] = configuration:calculate_similarity(
+                            request.frequencies,
+                            candidate_frequencies
+                        )
+                    end
+                end
+            end
+            return candidate, true, result
+        end
+    end
+
+    local results = {}
+    for candidate, include, scores in map(score, filter(predicate, pairs(candidates))) do
+        if include then
+            results[candidate] = scores
+        end
+    end
+
+    return results
+end
+
+
 -- Command Execution
 
 local commands = {
@@ -417,100 +511,16 @@ local commands = {
             )
         )(cursor, arguments)
 
-        local candidates = default_table(
-            function ()
-                return {}
-            end
-        )
-
-        for i, request in ipairs(requests) do
-            for candidate, collisions in pairs(configuration:get_candidates(request.index, request.frequencies)) do
-                candidates[candidate][request.index] = collisions
-            end
-        end
-
-        local predicate
-        if flags.STRICT then
-            -- STRICT mode requires that all thresholds are met for the
-            -- candidate for all features that contain data on the target *and*
-            -- that the candidate not contain data for any features that are
-            -- not also present on the target.
-            predicate = function (candidate, indices)
-                -- TODO: This filter should only be applied if the frequencies
-                -- actually contain any entries. (If the target doesn't have
-                -- any records for the feature, of course there won't be any
-                -- collisions.)
-                for i, request in ipairs(requests) do
-                    if (indices[request.index] or 0) < request.threshold then
-                        return false
-                    end
-                end
-                return true
-            end
-        else
-            -- Normal (non-STRICT) mode just requires that a single feature be
-            -- over the threshold.
-            predicate = function (candidate, indices)
-                for i, request in ipairs(requests) do
-                    if (indices[request.index] or 0) >= request.threshold then
-                        return true
-                    end
-                end
-                return false
-            end
-        end
-
-        local score
-        if flags.STRICT then
-            score = function (candidate, indices)
-                local result = {}
-                for i, request in ipairs(requests) do
-                    local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
-                    if (request.frequencies:empty() and candidate_frequencies:empty()) or
-                        (not request.frequencies:empty() and not candidate_frequencies:empty()) then
-                        result[i] = configuration:calculate_similarity(
-                            request.frequencies,
-                            candidate_frequencies
-                        )
-                    else
-                        return candidate, false, {}
-                    end
-                end
-                return candidate, true, result
-            end
-        else
-            score = function (candidate, indices)
-                local result = {}
-                for i, request in ipairs(requests) do
-                    if request.frequencies:empty() then
-                        result[i] = -1
-                    else
-                        local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
-                        if candidate_frequencies:empty() then
-                            result[i] = -1
-                        else
-                            result[i] = configuration:calculate_similarity(
-                                request.frequencies,
-                                configuration:get_frequencies(request.index, candidate)
-                            )
-                        end
-                    end
-                end
-                return candidate, true, result
-            end
-        end
-
         local results = {}
-        for candidate, include, scores in map(score, filter(predicate, pairs(candidates))) do
-            if include then
-                results[#results + 1] = {
-                    candidate,
-                    scores,
-                }
+        for key, scores in pairs(search(configuration, requests, flags.STRICT)) do
+            for i, score in ipairs(scores) do
+                scores[i] = string.format('%f', score)
             end
+            results[#results + 1] = {
+                key,
+                scores,
+            }
         end
-
-        -- TODO: Rewrite response to have strings instead of floats to avoid truncation
 
         return results
     end,
