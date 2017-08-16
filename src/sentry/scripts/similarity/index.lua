@@ -120,6 +120,19 @@ local function scale_to_total(values)
 end
 
 
+-- Frequencies
+
+local Frequencies = {}
+
+function Frequencies:new(data)
+    return setmetatable(data, {__index = self})
+end
+
+function Frequencies:empty()
+    return next(self[1], nil) == nil
+end
+
+
 -- Time Series Set
 
 local TimeSeriesSet = {}
@@ -240,7 +253,7 @@ function Configuration:get_frequencies(index, item)
         frequencies[band][bucket] = tonumber(count)
     end
 
-    return frequencies
+    return Frequencies:new(frequencies)
 end
 
 function Configuration:set_frequencies(index, item, frequencies)
@@ -289,11 +302,15 @@ local function flag_argument_parser(flags)
     end
 end
 
-local function repeated_argument_parser(argument_parser, quantity_parser)
+local function repeated_argument_parser(argument_parser, quantity_parser, callback)
     if quantity_parser == nil then
         quantity_parser = function (cursor, arguments)
             return cursor + 1, tonumber(arguments[cursor])
         end
+    end
+
+    if callback == nil then
+        callback = identity
     end
 
     return function (cursor, arguments)
@@ -302,7 +319,7 @@ local function repeated_argument_parser(argument_parser, quantity_parser)
         for i = 1, count do
             cursor, results[i] = argument_parser(cursor, arguments)
         end
-        return cursor, results
+        return cursor, callback(results)
     end
 end
 
@@ -357,6 +374,9 @@ local function frequencies_argument_parser(bands)
         end,
         function (cursor, arguments)
             return cursor, bands
+        end,
+        function (frequencies)
+            return Frequencies:new(frequencies)
         end
     )
 end
@@ -440,19 +460,14 @@ local commands = {
             end
         end
 
-        -- TODO: Possibly refactor this to a Frequency metatable
-        local function has_data(frequencies)
-            return next(frequencies[1], nil) ~= nil
-        end
-
         local score
         if flags.STRICT then
             score = function (candidate, indices)
                 local result = {}
                 for i, request in ipairs(requests) do
                     local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
-                    if (has_data(request.frequencies) and has_data(candidate_frequencies)) or
-                        (not has_data(request.frequencies) and not has_data(candidate_frequencies)) then
+                    if (request.frequencies:empty() and candidate_frequencies:empty()) or
+                        (not request.frequencies:empty() and not candidate_frequencies:empty()) then
                         result[i] = configuration:calculate_similarity(
                             request.frequencies,
                             candidate_frequencies
@@ -467,11 +482,19 @@ local commands = {
             score = function (candidate, indices)
                 local result = {}
                 for i, request in ipairs(requests) do
-                    -- TODO: Return a different data if one side doesn't have data
-                    result[i] = configuration:calculate_similarity(
-                        request.frequencies,
-                        configuration:get_frequencies(request.index, candidate)
-                    )
+                    if request.frequencies:empty() then
+                        result[i] = -1
+                    else
+                        local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
+                        if candidate_frequencies:empty() then
+                            result[i] = -1
+                        else
+                            result[i] = configuration:calculate_similarity(
+                                request.frequencies,
+                                configuration:get_frequencies(request.index, candidate)
+                            )
+                        end
+                    end
                 end
                 return candidate, true, result
             end
