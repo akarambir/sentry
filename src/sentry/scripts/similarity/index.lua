@@ -48,6 +48,18 @@ local function default_table(default)
     })
 end
 
+local function map(func, iterator, state, control)
+    return function ()
+        local result = {iterator(state, control)}
+        control = result[1]
+        while control ~= nil do
+            result = {iterator(state, control)}
+            control = result[1]
+            return func(unpack(result))
+        end
+    end
+end
+
 local function filter(predicate, iterator, state, control)
     return function ()
         local result = {iterator(state, control)}
@@ -409,7 +421,7 @@ local commands = {
                 -- any records for the feature, of course there won't be any
                 -- collisions.)
                 for i, request in ipairs(requests) do
-                    if indices[request.index] < request.threshold then
+                    if (indices[request.index] or 0) < request.threshold then
                         return false
                     end
                 end
@@ -420,7 +432,7 @@ local commands = {
             -- over the threshold.
             predicate = function (candidate, indices)
                 for i, request in ipairs(requests) do
-                    if indices[request.index] >= request.threshold then
+                    if (indices[request.index] or 0) >= request.threshold then
                         return true
                     end
                 end
@@ -428,23 +440,54 @@ local commands = {
             end
         end
 
-        local results = {}
-        for candidate, _ in filter(predicate, pairs(candidates)) do
-            local result = {}
-            for i, request in ipairs(requests) do
-                result[i] = string.format(
-                    '%f',
-                    configuration:calculate_similarity(
+        -- TODO: Possibly refactor this to a Frequency metatable
+        local function has_data(frequencies)
+            return next(frequencies[1], nil) ~= nil
+        end
+
+        local score
+        if flags.STRICT then
+            score = function (candidate, indices)
+                local result = {}
+                for i, request in ipairs(requests) do
+                    local candidate_frequencies = configuration:get_frequencies(request.index, candidate)
+                    if (has_data(request.frequencies) and has_data(candidate_frequencies)) or
+                        (not has_data(request.frequencies) and not has_data(candidate_frequencies)) then
+                        result[i] = configuration:calculate_similarity(
+                            request.frequencies,
+                            candidate_frequencies
+                        )
+                    else
+                        return candidate, false, {}
+                    end
+                end
+                return candidate, true, result
+            end
+        else
+            score = function (candidate, indices)
+                local result = {}
+                for i, request in ipairs(requests) do
+                    -- TODO: Return a different data if one side doesn't have data
+                    result[i] = configuration:calculate_similarity(
                         request.frequencies,
                         configuration:get_frequencies(request.index, candidate)
                     )
-                )
+                end
+                return candidate, true, result
             end
-            results[#results + 1] = {
-                candidate,
-                result,
-            }
         end
+
+        local results = {}
+        for candidate, include, scores in map(score, filter(predicate, pairs(candidates))) do
+            if include then
+                results[#results + 1] = {
+                    candidate,
+                    scores,
+                }
+            end
+        end
+
+        -- TODO: Rewrite response to have strings instead of floats to avoid truncation
 
         return results
     end,
