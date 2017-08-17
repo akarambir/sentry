@@ -1,4 +1,5 @@
 import React from 'react';
+import classNames from 'classnames';
 
 const Pill = React.createClass({
   propTypes: {
@@ -31,7 +32,7 @@ const Pill = React.createClass({
     let [extraClass, renderedValue] = this.renderValue();
 
     return (
-      <li className={(className || '') + (extraClass ? ' ' + extraClass : '')} {...props}>
+      <li className={classNames(className, extraClass)} {...props}>
         <span className="key">{name}</span>
         <span className="value">{renderedValue}{children}</span>
       </li>
