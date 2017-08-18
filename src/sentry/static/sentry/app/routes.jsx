@@ -23,7 +23,7 @@ import App from './views/app';
 import GroupActivity from './views/groupActivity';
 import GroupDetails from './views/groupDetails';
 import GroupEventDetails from './views/groupEventDetails';
-import GroupEvents from './views/groupEvents';
+import GroupEventsView from './views/groupEvents/groupEventsView';
 import GroupTags from './views/groupTags';
 import GroupTagValues from './views/groupTagValues';
 import GroupUserReports from './views/groupUserReports';
@@ -293,7 +293,7 @@ function routes() {
 
             <Route path="activity/" component={errorHandler(GroupActivity)} />
             <Route path="events/:eventId/" component={errorHandler(GroupEventDetails)} />
-            <Route path="events/" component={errorHandler(GroupEvents)} />
+            <Route path="events/" component={errorHandler(GroupEventsView)} />
             <Route path="tags/" component={errorHandler(GroupTags)} />
             <Route path="tags/:tagKey/" component={errorHandler(GroupTagValues)} />
             <Route path="feedback/" component={errorHandler(GroupUserReports)} />

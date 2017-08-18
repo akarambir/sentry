@@ -32,6 +32,7 @@ const GroupingStore = Reflux.createStore({
       unmergeList: new Set(),
       unmergeState: new Map(),
       unmergeDisabled: false,
+      unmergeCollapseState: new Set(),
 
       similarItems: [],
       filteredSimilarItems: [],
@@ -353,6 +354,38 @@ const GroupingStore = Reflux.createStore({
     return promise;
   },
 
+  onExpandFingerprints() {
+    this.setStateForId(this.unmergeState, this.mergedItems.map(({id}) => id), {
+      collapsed: false
+    });
+
+    this.trigger({
+      unmergeCollapseState: this.unmergeCollapseState
+    });
+  },
+
+  onCollapseFingerprints() {
+    console.log(this.mergedItems); //.map(({id}) => id), {
+    // collapsed: true
+    // });
+    this.setStateForId(this.unmergeState, this.mergedItems.map(({id}) => id), {
+      collapsed: true
+    });
+
+    this.trigger({
+      unmergeState: this.unmergeState
+    });
+  },
+
+  onToggleCollapseFingerprint(fingerprint) {
+    let collapsed =
+      this.unmergeState.has(fingerprint) && this.unmergeState.get(fingerprint).collapsed;
+    this.setStateForId(this.unmergeState, fingerprint, {collapsed: !collapsed});
+    this.trigger({
+      unmergeState: this.unmergeState
+    });
+  },
+
   triggerFetchState() {
     let state = {
       similarItems: this.similarItems.filter(({isBelowThreshold}) => !isBelowThreshold),
@@ -374,7 +407,12 @@ const GroupingStore = Reflux.createStore({
   },
 
   triggerUnmergeState() {
-    let state = pick(this, ['unmergeDisabled', 'unmergeState', 'unmergeList']);
+    let state = pick(this, [
+      'unmergeDisabled',
+      'unmergeState',
+      'unmergeList',
+      'unmergeCollapseState'
+    ]);
     this.trigger(state);
     return state;
   },

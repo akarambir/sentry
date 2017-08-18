@@ -2,13 +2,15 @@ import React, {PropTypes} from 'react';
 import Reflux from 'reflux';
 import classNames from 'classnames';
 
-import GroupingStore from '../../stores/groupingStore';
-import GroupingActions from '../../actions/groupingActions';
-import EventOrGroupHeader from '../../components/eventOrGroupHeader';
-import EventOrGroupExtraDetails from '../../components/eventOrGroupExtraDetails';
-import SpreadLayout from '../../components/spreadLayout';
-import SplitLayout from '../../components/splitLayout';
 import Checkbox from '../../components/checkbox';
+import EventsTable from '../../components/eventsTable/eventsTable';
+import FlowLayout from '../../components/flowLayout';
+import GroupState from '../../mixins/groupState';
+import GroupingActions from '../../actions/groupingActions';
+import GroupingStore from '../../stores/groupingStore';
+import SpreadLayout from '../../components/spreadLayout';
+
+import '../../../less/components/mergedItem.less';
 
 const MergedItem = React.createClass({
   propTypes: {
@@ -25,10 +27,11 @@ const MergedItem = React.createClass({
     })
   },
 
-  mixins: [Reflux.listenTo(GroupingStore, 'onGroupingChange')],
+  mixins: [GroupState, Reflux.listenTo(GroupingStore, 'onGroupingChange')],
 
   getInitialState() {
     return {
+      collapsed: false,
       checked: false,
       busy: false
     };
@@ -38,7 +41,7 @@ const MergedItem = React.createClass({
     if (!unmergeState) return;
 
     let {fingerprint} = this.props;
-    const stateForId = unmergeState.has(fingerprint) && unmergeState.get(fingerprint);
+    let stateForId = unmergeState.has(fingerprint) && unmergeState.get(fingerprint);
     if (!stateForId) return;
 
     Object.keys(stateForId).forEach(key => {
@@ -48,6 +51,11 @@ const MergedItem = React.createClass({
         [key]: stateForId[key]
       });
     });
+  },
+
+  handleToggleEvents() {
+    let {fingerprint} = this.props;
+    GroupingActions.toggleCollapseFingerprint(fingerprint);
   },
 
   handleToggle(e) {
@@ -62,48 +70,56 @@ const MergedItem = React.createClass({
   render() {
     let {disabled, event, orgId, fingerprint, projectId, groupId} = this.props;
     let checkboxDisabled = disabled || this.state.disabled;
-    let cx = classNames('group', 'merged-event', {
+    let cx = classNames('fingerprint-group', {
+      expanded: !this.state.collapsed,
       busy: this.state.busy
     });
+    let group = this.getGroup();
+    let tagList = group.tags.filter(tag => tag.key !== 'user');
 
-    // Not sure why, but `event` can be null
+    // `event` can be null if last event w/ fingerprint is not within retention period
     return (
-      <SplitLayout onClick={this.handleToggle} className={cx} responsive>
-        <div>
-          <div className="event-details">
-            {event &&
-              <EventOrGroupHeader
-                orgId={orgId}
-                projectId={projectId}
-                data={event}
-                hideLevel
-              />}
-            {event &&
-              <EventOrGroupExtraDetails
-                groupId={groupId}
-                orgId={orgId}
-                projectId={projectId}
-                event={event}
-                firstSeen={event.dateCreated}
-                logger={event.platform}
-              />}
-          </div>
-        </div>
+      <div className={cx}>
+        <SpreadLayout className="fingerprint-controls" responsive>
+          <FlowLayout onClick={this.handleToggle}>
+            <div className="action-column">
+              <Checkbox
+                id={fingerprint}
+                value={fingerprint}
+                checked={this.state.checked}
+                disabled={checkboxDisabled}
+              />
+            </div>
 
-        <SpreadLayout className="grouping-controls">
-          <div className="truncate fingerprint">
-            {fingerprint}
-          </div>
-          <div className="align-right action-column">
-            <Checkbox
-              id={fingerprint}
-              value={fingerprint}
-              checked={this.state.checked}
-              disabled={checkboxDisabled}
-            />
+            <label htmlFor={fingerprint} className="truncate fingerprint">
+              {fingerprint}
+            </label>
+          </FlowLayout>
+
+          <div>
+            <span />
+            <span className="fingerprint-collapse" onClick={this.handleToggleEvents}>
+              {this.state.collapsed
+                ? <i className="icon-arrow-down" />
+                : <i className="icon-arrow-up" />}
+            </span>
           </div>
         </SpreadLayout>
-      </SplitLayout>
+
+        {!this.state.collapsed &&
+          <div className="fingerprint-events-list event-list">
+            {event &&
+              <EventsTable
+                tagList={tagList}
+                events={[event]}
+                params={{
+                  orgId,
+                  projectId,
+                  groupId
+                }}
+              />}
+          </div>}
+      </div>
     );
   }
 });

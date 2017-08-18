@@ -1,0 +1,76 @@
+@import '../palette.less';
+
+.fingerprint-list {
+  border: 1px solid @trim;
+  border-bottom: none;
+
+  .fingerprint-group {
+    &:first-child {
+      .fingerprint-controls {
+        border-top: none;
+      }
+    }
+
+    &:last-child {
+      .fingerprint-controls {
+        border-bottom: 1px solid @trim;
+      }
+    }
+  }
+}
+
+.expanded {
+  .fingerprint-controls {
+    border-bottom: 1px solid @trim;
+  }
+}
+
+.fingerprint-controls {
+  border-top: 1px solid @trim;
+  background-color: #f3f1f6;
+  padding: 5px 0;
+
+  .action-column {
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+
+    input {
+      margin: 0;
+    }
+  }
+
+  label {
+    margin: 0;
+    font-weight: normal;
+  }
+}
+
+
+.fingerprint-collapse {
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.fingerprint-list .table {
+  table-layout: fixed;
+
+  & > thead > tr > th,
+  & > tbody > tr > td {
+    width: 300px;
+  }
+}
+
+.fingerprint-events-list {
+  &.event-list {
+    border: none;
+  }
+}
+
+.fingerprint {
+  font-family: Monaco, monospace;
+}
+
+.fingerprints-toolbar {
+  padding: 5px 10px;
+}

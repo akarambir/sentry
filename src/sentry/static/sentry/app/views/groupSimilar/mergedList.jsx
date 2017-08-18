@@ -10,6 +10,7 @@ import MergedToolbar from './mergedToolbar';
 const MergedList = React.createClass({
   propTypes: {
     onUnmerge: PropTypes.func.isRequired,
+    onCollapse: PropTypes.func.isRequired,
     items: PropTypes.arrayOf(Event),
     pageLinks: PropTypes.string
   },
@@ -24,20 +25,20 @@ const MergedList = React.createClass({
   },
 
   render() {
-    let {items, pageLinks, onUnmerge, ...otherProps} = this.props;
+    let {items, pageLinks, onCollapse, onUnmerge, ...otherProps} = this.props;
     let hasResults = items.length > 0;
 
     if (hasResults) {
       return (
-        <div className="grouping-list-container grouping-merged-list-container">
-          <h2>{t('Merged with this Issue')}</h2>
-          <MergedToolbar onUnmerge={onUnmerge} />
+        <div className="fingerprint-list-container">
+          <MergedToolbar onCollapse={onCollapse} onUnmerge={onUnmerge} />
 
-          <div className="grouping-list">
+          <div className="fingerprint-list">
             {items.map(({id, latestEvent}) => (
               <MergedItem
                 key={id}
                 {...otherProps}
+                disabled={items.length === 1}
                 event={latestEvent}
                 fingerprint={id}
                 itemCount={items.length}

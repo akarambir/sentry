@@ -5,13 +5,15 @@ import {t} from '../../locale';
 import GroupingStore from '../../stores/groupingStore';
 
 import LinkWithConfirmation from '../../components/linkWithConfirmation';
+import Toolbar from '../../components/toolbar';
 import SpreadLayout from '../../components/spreadLayout';
-import SplitLayout from '../../components/splitLayout';
 
 const MergedToolbar = React.createClass({
   propTypes: {
-    onUnmerge: PropTypes.func
+    onUnmerge: PropTypes.func,
+    onCollapse: PropTypes.func
   },
+
   mixins: [Reflux.listenTo(GroupingStore, 'onGroupingUpdate')],
   getInitialState() {
     return {
@@ -28,20 +30,12 @@ const MergedToolbar = React.createClass({
   },
 
   render() {
-    let {onUnmerge} = this.props;
+    let {onUnmerge, onCollapse} = this.props;
     return (
-      <div className="grouping-toolbar stream-actions">
-        <SplitLayout responsive>
+      <Toolbar className="fingerprints-toolbar">
+        <SpreadLayout responsive>
           <SpreadLayout>
-            <div className="stream-actions-header">
-              {t('Event')}
-            </div>
-          </SpreadLayout>
-          <SpreadLayout>
-            <div className="stream-actions-header event-fingerprint-header">
-              {t('Fingerprint')}
-            </div>
-            <div className="grouping-toolbar-actions">
+            <div className="fingerprints-toolbar-actions">
               <LinkWithConfirmation
                 disabled={this.state.unmergeCount === 0}
                 title={t(`Unmerging ${this.state.unmergeCount} events`)}
@@ -54,8 +48,15 @@ const MergedToolbar = React.createClass({
               </LinkWithConfirmation>
             </div>
           </SpreadLayout>
-        </SplitLayout>
-      </div>
+          <SpreadLayout>
+            <div>
+              <button className="btn btn-sm btn-default" onClick={onCollapse}>
+                Collapse All
+              </button>
+            </div>
+          </SpreadLayout>
+        </SpreadLayout>
+      </Toolbar>
     );
   }
 });
