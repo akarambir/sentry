@@ -81,12 +81,20 @@ const Event = React.PropTypes.shape({
   user: React.PropTypes.object
 });
 
+const Tag = React.PropTypes.shape({
+  id: React.PropTypes.string.isRequired,
+  key: React.PropTypes.string.isRequired,
+  name: React.PropTypes.string.isRequired,
+  uniqueValues: React.PropTypes.number
+});
+
 let PropTypes = {
   AnyModel: React.PropTypes.shape({
     id: React.PropTypes.string.isRequired
   }),
   Group,
   Event,
+  Tag,
   Organization: React.PropTypes.shape({
     id: React.PropTypes.string.isRequired
   }),
